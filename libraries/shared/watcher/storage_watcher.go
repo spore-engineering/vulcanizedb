@@ -23,6 +23,7 @@ import (
 	"time"
 
 	"github.com/ethereum/go-ethereum/common"
+	"github.com/ethereum/go-ethereum/log"
 	storage2 "github.com/makerdao/vulcanizedb/libraries/shared/factories/storage"
 	"github.com/makerdao/vulcanizedb/libraries/shared/storage"
 	"github.com/makerdao/vulcanizedb/libraries/shared/storage/types"
@@ -157,7 +158,12 @@ func (watcher StorageWatcher) transformDiff(diff types.PersistedDiff) error {
 }
 
 func (watcher StorageWatcher) getTransformer(diff types.PersistedDiff) (storage2.ITransformer, bool) {
+	log.Info("EEEEEEEEEEEEEEEEEEEEEEEEEEEEE: diff's hashed address:", diff.HashedAddress.Hex())
+	for hashedAddress, _ := range watcher.KeccakAddressTransformers{
+		log.Info("EEEEEEEEEEEEEEEEEEEEEEEEEEEEE: Hashed address: ", hashedAddress.Hex)
+	}
 	storageTransformer, ok := watcher.KeccakAddressTransformers[diff.HashedAddress]
+	log.Info("EEEEEEEEEEEEEEEEEEEEEEEEEEEEE: OK!!")
 	return storageTransformer, ok
 }
 

@@ -17,6 +17,7 @@
 package storage_test
 
 import (
+	"fmt"
 	"math/rand"
 
 	"github.com/ethereum/go-ethereum/common"
@@ -46,6 +47,34 @@ var _ = Describe("Storage transformer", func() {
 	})
 
 	It("returns the keccaked contract address being watched", func() {
+		var (
+			MCD_FLIP_ETH_A_address  = "0xd8a04f5412223f513dc55f839574430f5ec15531"
+			MCD_FLIP_BAT_A_address  = "0xaa745404d55f88c108a28c86abe7b5a1e7817c07"
+			MCD_FLIP_SAI_address  = "0x5432b2f3c0dff95aa191c45e5cbd539e2820ae72"
+			MCD_CAT_address  = "0x78f2c2af65126834c51822f56be0d7469d7a523e"
+			CDP_MANAGER_address  = "0x5ef30b9986345249bc32d8928b7ee64de9435e39"
+			MCD_FLAP_address  = "0xdfe0fb1be2a52cdbf8fb962d5701d7fd0902db9f"
+			MCD_FLOP_address  = "0x4d95a049d5b0b7d32058cd3f2163015747522e99"
+			MCD_JUG_address  = "0x19c0976f590d67707e62397c87829d896dc0f1f1"
+			MCD_POT_address = "0x197e90f9fad81970ba7976f33cbd77088e5d7cf7"
+			MCD_SPOT_address  = "0x65c79fcb50ca1594b025960e539ed7a9a6d434a3"
+			MCD_VAT_address  = "0x35d1b3f3d7966a1dfe207aa4514c12a259a0492b"
+			MCD_VOW_address  = "0xa950524441892a31ebddf91d3ceefa04bf454466"
+			OSM_ETH_address  = "0x81FE72B5A8d1A857d176C3E7d5Bd2679A9B85763"
+			OSM_BAT_address  = "0xb4eb54af9cc7882df0121d26c5b97e802915abe6"
+		)
+
+		contract_addresses := []string{MCD_FLIP_ETH_A_address, MCD_FLIP_BAT_A_address, MCD_FLIP_SAI_address,
+			MCD_CAT_address, CDP_MANAGER_address, MCD_FLAP_address, MCD_FLOP_address,
+		MCD_JUG_address, MCD_POT_address, MCD_SPOT_address, MCD_VAT_address,
+		MCD_VOW_address, OSM_ETH_address, OSM_BAT_address}
+
+
+		for _, c := range contract_addresses {
+			keccakOfAddress := types.HexToKeccak256Hash(c)
+			fmt.Println("address: ", c, "keccak", keccakOfAddress.Hex())
+		}
+
 		fakeAddress := fakes.FakeAddress
 		keccakOfAddress := types.HexToKeccak256Hash(fakeAddress.Hex())
 		t.Address = fakeAddress
