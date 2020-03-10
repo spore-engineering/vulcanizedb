@@ -49,7 +49,7 @@ func (db *DB) CreateNode(node *core.Node) error {
 		`WITH nodeID AS (
 			INSERT INTO eth_nodes (genesis_block, network_id, eth_node_id, client_name)
 			VALUES ($1, $2, $3, $4)
-			ON CONFLICT (genesis_block, network_id, eth_node_id, client_name) DO NOTHING
+			ON CONFLICT ON CONSTRAINT eth_nodes_genesis_block_network_id_eth_node_id_client_name_key DO NOTHING
 			RETURNING id
 		)
 		SELECT id FROM eth_nodes WHERE genesis_block = $1 AND network_id = $2 AND eth_node_id = $3 AND client_name = $4
