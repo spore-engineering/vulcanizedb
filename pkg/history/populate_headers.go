@@ -17,6 +17,8 @@
 package history
 
 import (
+	"database/sql"
+	"errors"
 	"fmt"
 
 	"github.com/makerdao/vulcanizedb/pkg/core"
@@ -50,7 +52,7 @@ func RetrieveAndUpdateHeaders(blockChain core.BlockChain, headerRepository datas
 	headers, err := blockChain.GetHeadersByNumbers(blockNumbers)
 	for _, header := range headers {
 		_, err = headerRepository.CreateOrUpdateHeader(header)
-		if err != nil {
+		if err != nil && !errors.Is(err, sql.ErrNoRows) {
 			return err
 		}
 	}

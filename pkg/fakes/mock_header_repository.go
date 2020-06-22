@@ -35,6 +35,7 @@ type MockHeaderRepository struct {
 	GetHeadersInRangeEndingBlock           int64
 	GetHeadersInRangeError                 error
 	GetHeadersInRangeStartingBlock         int64
+	MissingBlockNumbersError               error
 	MostRecentHeaderBlockNumber            int64
 	MostRecentHeaderBlockNumberErr         error
 	createOrUpdateHeaderCallCount          int
@@ -96,7 +97,7 @@ func (mock *MockHeaderRepository) GetHeadersInRange(startingBlock, endingBlock i
 }
 
 func (mock *MockHeaderRepository) MissingBlockNumbers(startingBlockNumber, endingBlockNumber int64) ([]int64, error) {
-	return mock.missingBlockNumbers, nil
+	return mock.missingBlockNumbers, mock.MissingBlockNumbersError
 }
 
 func (mock *MockHeaderRepository) GetMostRecentHeaderBlockNumber() (int64, error) {

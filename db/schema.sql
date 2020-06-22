@@ -105,6 +105,7 @@ BEGIN
     INSERT INTO public.headers (hash, block_number, raw, block_timestamp, eth_node_id)
     VALUES (get_or_create_header.hash, get_or_create_header.block_number, get_or_create_header.raw,
             get_or_create_header.block_timestamp, get_or_create_header.eth_node_id)
+    ON CONFLICT DO NOTHING
     RETURNING id INTO inserted_header_id;
 
     RETURN inserted_header_id;

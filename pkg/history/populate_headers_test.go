@@ -17,7 +17,9 @@
 package history_test
 
 import (
+	"database/sql"
 	"math/big"
+	"math/rand"
 
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
@@ -27,42 +29,69 @@ import (
 )
 
 var _ = Describe("Populating headers", func() {
-	var headerRepository *fakes.MockHeaderRepository
-	var statusWriter fakes.MockStatusWriter
+	var (
+		blockChain                          *fakes.MockBlockChain
+		headerRepository                    *fakes.MockHeaderRepository
+		headOfChain, blockBeforeHeadOfChain int64
+	)
 
 	BeforeEach(func() {
+		blockChain = fakes.NewMockBlockChain()
+		headOfChain = rand.Int63()
+		blockBeforeHeadOfChain = headOfChain - 1
+		blockChain.SetLastBlock(big.NewInt(headOfChain))
 		headerRepository = fakes.NewMockHeaderRepository()
-		statusWriter = fakes.MockStatusWriter{}
 	})
 
-	It("adds missing headers to the db", func() {
-		blockChain := fakes.NewMockBlockChain()
-		blockChain.SetLastBlock(big.NewInt(2))
-		headerRepository.SetMissingBlockNumbers([]int64{2})
-
-		err := history.PopulateMissingHeaders(blockChain, headerRepository, 1)
-
-		Expect(err).NotTo(HaveOccurred())
-		headerRepository.AssertCreateOrUpdateHeaderCallCountAndPassedBlockNumbers(1, []int64{2})
-	})
-
-	It("does not error if the db is already synced up to the head of the chain", func() {
-		blockChain := fakes.NewMockBlockChain()
-		blockChain.SetLastBlock(big.NewInt(2))
-
-		err := history.PopulateMissingHeaders(blockChain, headerRepository, 2)
-
-		Expect(err).NotTo(HaveOccurred())
-	})
-
-	It("Does not write a healthcheck file when the call to get the last block fails", func() {
-		blockChain := fakes.NewMockBlockChain()
+	It("returns error if getting last block from chain fails", func() {
 		blockChain.SetLastBlockError(fakes.FakeError)
 
-		err := history.PopulateMissingHeaders(blockChain, headerRepository, 1)
+		err := history.PopulateMissingHeaders(blockChain, headerRepository, headOfChain)
 
 		Expect(err).To(HaveOccurred())
 		Expect(err).To(MatchError(fakes.FakeError))
-		Expect(statusWriter.WriteCalled).To(BeFalse())
+	})
+
+	It("returns error if getting missing headers fails", func() {
+		headerRepository.MissingBlockNumbersError = fakes.FakeError
+
+		err := history.PopulateMissingHeaders(blockChain, headerRepository, blockBeforeHeadOfChain)
+
+		Expect(err).To(HaveOccurred())
+		Expect(err).To(MatchError(fakes.FakeError))
+	})
+
+	It("does not error if the db is already synced up to the head of the chain", func() {
+		err := history.PopulateMissingHeaders(blockChain, headerRepository, blockBeforeHeadOfChain)
+
+		Expect(err).NotTo(HaveOccurred())
+	})
+
+	It("adds missing headers to the db", func() {
+		headerRepository.SetMissingBlockNumbers([]int64{headOfChain})
+
+		err := history.PopulateMissingHeaders(blockChain, headerRepository, blockBeforeHeadOfChain)
+
+		Expect(err).NotTo(HaveOccurred())
+		headerRepository.AssertCreateOrUpdateHeaderCallCountAndPassedBlockNumbers(1, []int64{headOfChain})
+	})
+
+	It("returns error if inserting header fails", func() {
+		headerRepository.SetMissingBlockNumbers([]int64{headOfChain})
+		headerRepository.SetCreateOrUpdateHeaderReturnErr(fakes.FakeError)
+
+		err := history.PopulateMissingHeaders(blockChain, headerRepository, blockBeforeHeadOfChain)
+
+		Expect(err).To(HaveOccurred())
+		Expect(err).To(MatchError(fakes.FakeError))
+	})
+
+	It("does not error if scanning header id returns no rows due to duplicate insert", func() {
+		headerRepository.SetMissingBlockNumbers([]int64{headOfChain})
+		headerRepository.SetCreateOrUpdateHeaderReturnErr(sql.ErrNoRows)
+
+		err := history.PopulateMissingHeaders(blockChain, headerRepository, blockBeforeHeadOfChain)
+
+		Expect(err).NotTo(HaveOccurred())
 	})
 })
