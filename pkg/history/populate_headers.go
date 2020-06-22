@@ -24,36 +24,37 @@ import (
 	"github.com/sirupsen/logrus"
 )
 
-func PopulateMissingHeaders(blockChain core.BlockChain, headerRepository datastore.HeaderRepository, startingBlockNumber int64) (int, error) {
-	lastBlock, err := blockChain.LastBlock()
-	if err != nil {
-		return 0, fmt.Errorf("error getting last block: %w", err)
+func PopulateMissingHeaders(blockChain core.BlockChain, headerRepository datastore.HeaderRepository, startingBlockNumber int64) error {
+	lastBlock, lastBlockErr := blockChain.LastBlock()
+	if lastBlockErr != nil {
+		return fmt.Errorf("error getting client's last block: %w", lastBlockErr)
 	}
 
-	blockNumbers, err := headerRepository.MissingBlockNumbers(startingBlockNumber, lastBlock.Int64())
-	if err != nil {
-		return 0, fmt.Errorf("error getting missing block numbers: %s", err.Error())
-	} else if len(blockNumbers) == 0 {
-		return 0, nil
+	blockNumbers, missingBlocksErr := headerRepository.MissingBlockNumbers(startingBlockNumber, lastBlock.Int64())
+	if missingBlocksErr != nil {
+		return fmt.Errorf("error getting missing block numbers: %w", missingBlocksErr)
+	}
+	if len(blockNumbers) == 0 {
+		return nil
 	}
 
 	logrus.Debug(getBlockRangeString(blockNumbers))
-	_, err = RetrieveAndUpdateHeaders(blockChain, headerRepository, blockNumbers)
-	if err != nil {
-		return 0, fmt.Errorf("error getting/updating headers: %s", err.Error())
+	updateErr := RetrieveAndUpdateHeaders(blockChain, headerRepository, blockNumbers)
+	if updateErr != nil {
+		return fmt.Errorf("error getting/updating headers: %w", updateErr)
 	}
-	return len(blockNumbers), nil
+	return nil
 }
 
-func RetrieveAndUpdateHeaders(blockChain core.BlockChain, headerRepository datastore.HeaderRepository, blockNumbers []int64) (int, error) {
+func RetrieveAndUpdateHeaders(blockChain core.BlockChain, headerRepository datastore.HeaderRepository, blockNumbers []int64) error {
 	headers, err := blockChain.GetHeadersByNumbers(blockNumbers)
 	for _, header := range headers {
 		_, err = headerRepository.CreateOrUpdateHeader(header)
 		if err != nil {
-			return 0, err
+			return err
 		}
 	}
-	return len(blockNumbers), nil
+	return nil
 }
 
 func getBlockRangeString(blockRange []int64) string {

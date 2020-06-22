@@ -57,7 +57,7 @@ var (
 
 const (
 	pollingInterval  = 7 * time.Second
-	validationWindow = 15
+	validationWindow = 25
 )
 
 var rootCmd = &cobra.Command{

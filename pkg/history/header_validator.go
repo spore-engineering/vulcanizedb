@@ -38,14 +38,14 @@ func NewHeaderValidator(blockChain core.BlockChain, repository datastore.HeaderR
 }
 
 func (validator HeaderValidator) ValidateHeaders() (ValidationWindow, error) {
-	window, err := MakeValidationWindow(validator.blockChain, validator.windowSize)
-	if err != nil {
-		return ValidationWindow{}, fmt.Errorf("error creating validation window: %s", err.Error())
+	window, windowErr := MakeValidationWindow(validator.blockChain, validator.windowSize)
+	if windowErr != nil {
+		return ValidationWindow{}, fmt.Errorf("error creating validation window: %w", windowErr)
 	}
 	blockNumbers := MakeRange(window.LowerBound, window.UpperBound)
-	_, err = RetrieveAndUpdateHeaders(validator.blockChain, validator.headerRepository, blockNumbers)
-	if err != nil {
-		return ValidationWindow{}, fmt.Errorf("error getting/updating headers: %s", err.Error())
+	updateErr := RetrieveAndUpdateHeaders(validator.blockChain, validator.headerRepository, blockNumbers)
+	if updateErr != nil {
+		return ValidationWindow{}, fmt.Errorf("error getting/updating headers: %w", updateErr)
 	}
 	return window, nil
 }

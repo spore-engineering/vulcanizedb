@@ -17,6 +17,7 @@
 package cmd
 
 import (
+	"fmt"
 	"time"
 
 	"github.com/makerdao/vulcanizedb/pkg/core"
@@ -52,7 +53,10 @@ Expects ethereum node to be running and requires a .toml config:
 	Run: func(cmd *cobra.Command, args []string) {
 		SubCommand = cmd.CalledAs()
 		LogWithCommand = *logrus.WithField("SubCommand", SubCommand)
-		headerSync()
+		err := headerSync()
+		if err != nil {
+			LogWithCommand.Fatalf("error syncing headers: %s", err.Error())
+		}
 	},
 }
 
@@ -61,60 +65,60 @@ func init() {
 	headerSyncCmd.Flags().Int64VarP(&startingBlockNumber, "starting-block-number", "s", 0, "Block number to start syncing from")
 }
 
-func backFillAllHeaders(blockchain core.BlockChain, headerRepository datastore.HeaderRepository, missingBlocksPopulated chan int, startingBlockNumber int64) {
-	populated, err := history.PopulateMissingHeaders(blockchain, headerRepository, startingBlockNumber)
+func backFillAllHeaders(blockchain core.BlockChain, headerRepository datastore.HeaderRepository, startingBlockNumber int64, errs chan error) {
+	err := history.PopulateMissingHeaders(blockchain, headerRepository, startingBlockNumber)
 	if err != nil {
-		// TODO Lots of possible errors in the call stack above. If errors occur, we still put
-		// 0 in the channel, triggering another round
-		LogWithCommand.Error("backfillAllHeaders: Error populating headers: ", err)
+		errs <- err
 	}
-	missingBlocksPopulated <- populated
 }
 
-func headerSync() {
-	ticker := time.NewTicker(pollingInterval)
-	defer ticker.Stop()
+func headerSync() error {
 	blockChain := getBlockChain()
-	validateHeaderSyncArgs(blockChain)
+	validationErr := validateHeaderSyncArgs(blockChain)
+	if validationErr != nil {
+		return fmt.Errorf("error validating cli args: %w", validationErr)
+	}
 	db := utils.LoadPostgres(databaseConfig, blockChain.Node())
 
 	headerRepository := repositories.NewHeaderRepository(&db)
-	validator := history.NewHeaderValidator(blockChain, headerRepository, validationWindow)
-	missingBlocksPopulated := make(chan int)
 
 	statusWriter := fs.NewStatusWriter("/tmp/header_sync_health_check", []byte("headerSync starting\n"))
 	writeErr := statusWriter.Write()
 	if writeErr != nil {
-		LogWithCommand.Errorf("headerSync: Error writing health check file: %s", writeErr.Error())
+		return fmt.Errorf("error writing header sync health check file: %w", writeErr)
 	}
 
-	go backFillAllHeaders(blockChain, headerRepository, missingBlocksPopulated, startingBlockNumber)
+	backFillErrs := make(chan error)
+	go backFillAllHeaders(blockChain, headerRepository, startingBlockNumber, backFillErrs)
+
+	validator := history.NewHeaderValidator(blockChain, headerRepository, validationWindow)
+
+	ticker := time.NewTicker(pollingInterval)
+	defer ticker.Stop()
 
 	for {
 		select {
+		case err := <-backFillErrs:
+			return fmt.Errorf("error backfilling headers: %w", err)
 		case <-ticker.C:
 			window, err := validator.ValidateHeaders()
 			if err != nil {
-				LogWithCommand.Errorf("headerSync: ValidateHeaders failed: %s", err.Error())
+				return fmt.Errorf("error validating headers: %w", err)
 			}
 			LogWithCommand.Debug(window.GetString())
-		case n := <-missingBlocksPopulated:
-			if n == 0 {
-				time.Sleep(3 * time.Second)
-			}
-			go backFillAllHeaders(blockChain, headerRepository, missingBlocksPopulated, startingBlockNumber)
 		}
 	}
 }
 
-func validateHeaderSyncArgs(blockChain *eth.BlockChain) {
+func validateHeaderSyncArgs(blockChain *eth.BlockChain) error {
 	lastBlock, err := blockChain.LastBlock()
 	if err != nil {
-		LogWithCommand.Fatalf("validateHeaderSyncArgs: Error getting last block: %s", err.Error())
+		return fmt.Errorf("error getting last block known to client: %w", err)
 	}
 	lastBlockNumber := lastBlock.Int64()
 	if startingBlockNumber > lastBlockNumber {
-		LogWithCommand.Fatalf("starting block number (%d) greater than client's most recent synced block (%d)",
+		return fmt.Errorf("starting block number (%d) greater than client's most recent synced block (%d)",
 			startingBlockNumber, lastBlockNumber)
 	}
+	return nil
 }
