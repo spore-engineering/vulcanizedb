@@ -148,6 +148,20 @@ $$;
 
 
 --
+-- Name: set_storage_updated(); Type: FUNCTION; Schema: public; Owner: -
+--
+
+CREATE FUNCTION public.set_storage_updated() RETURNS trigger
+    LANGUAGE plpgsql
+    AS $$
+BEGIN
+    NEW.updated = NOW();
+    RETURN NEW;
+END;
+$$;
+
+
+--
 -- Name: set_transaction_updated(); Type: FUNCTION; Schema: public; Owner: -
 --
 
@@ -421,7 +435,9 @@ CREATE TABLE public.storage_diff (
     storage_value bytea,
     eth_node_id integer NOT NULL,
     checked boolean DEFAULT false NOT NULL,
-    from_backfill boolean DEFAULT false NOT NULL
+    from_backfill boolean DEFAULT false NOT NULL,
+    created timestamp without time zone DEFAULT now() NOT NULL,
+    updated timestamp without time zone DEFAULT now() NOT NULL
 );
 
 
@@ -827,6 +843,13 @@ CREATE TRIGGER event_log_updated BEFORE UPDATE ON public.event_logs FOR EACH ROW
 --
 
 CREATE TRIGGER header_updated BEFORE UPDATE ON public.headers FOR EACH ROW EXECUTE PROCEDURE public.set_header_updated();
+
+
+--
+-- Name: storage_diff storage_updated; Type: TRIGGER; Schema: public; Owner: -
+--
+
+CREATE TRIGGER storage_updated BEFORE UPDATE ON public.storage_diff FOR EACH ROW EXECUTE PROCEDURE public.set_storage_updated();
 
 
 --
